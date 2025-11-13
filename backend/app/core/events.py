@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.core.database import init_db, close_db
 from app.services.system_monitor import SystemMonitor
 from app.services.mavlink_router import MAVLinkRouter
-from app.services.video_streamer import VideoStreamer
+from app.services.mediamtx_manager import MediaMTXManager
 from app.services.vpn_manager import VPNManager
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ async def startup_event(app: FastAPI) -> None:
     # Initialize service managers (stored in app state)
     app.state.system_monitor = SystemMonitor()
     app.state.mavlink_router = MAVLinkRouter()
-    app.state.video_streamer = VideoStreamer()
+    app.state.mediamtx_manager = MediaMTXManager()
     app.state.vpn_manager = VPNManager()
 
     # Start system monitoring
@@ -40,8 +40,8 @@ async def shutdown_event(app: FastAPI) -> None:
     if hasattr(app.state, "mavlink_router"):
         await app.state.mavlink_router.stop()
 
-    if hasattr(app.state, "video_streamer"):
-        await app.state.video_streamer.stop()
+    if hasattr(app.state, "mediamtx_manager"):
+        await app.state.mediamtx_manager.stop()
 
     if hasattr(app.state, "vpn_manager"):
         await app.state.vpn_manager.disconnect()

@@ -280,7 +280,7 @@ export default function FlightController({ mavlinkStats }: Props) {
         {/* Destinations List */}
         <div className="relative space-y-2">
           {mavlinkStats?.destinations && mavlinkStats.destinations.length > 0 ? (
-            mavlinkStats.destinations.map((dest) => (
+            mavlinkStats.destinations.map((dest: any) => (
               <div
                 key={dest.name}
                 className="group/item relative flex items-center justify-between bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"

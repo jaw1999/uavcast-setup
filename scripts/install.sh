@@ -47,17 +47,13 @@ apt-get install -y \
     curl \
     wget \
     v4l-utils \
-    gstreamer1.0-tools \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
-    libgstreamer1.0-dev \
+    ffmpeg \
     modemmanager \
     network-manager \
     nodejs \
-    npm
+    npm \
+    libcamera0 \
+    libfreetype6
 
 echo ""
 echo "Step 3: Setting up Python virtual environment..."
@@ -78,16 +74,53 @@ pip install -r requirements.txt
 deactivate
 
 echo ""
-echo "Step 5: Installing frontend dependencies..."
+echo "Step 5: Installing MediaMTX..."
+MEDIAMTX_VERSION="v1.9.3"
+ARCH=$(uname -m)
+
+# Determine the correct MediaMTX binary for the architecture
+if [ "$ARCH" = "aarch64" ]; then
+    MEDIAMTX_ARCH="arm64v8"
+elif [ "$ARCH" = "armv7l" ]; then
+    MEDIAMTX_ARCH="armv7"
+elif [ "$ARCH" = "x86_64" ]; then
+    MEDIAMTX_ARCH="amd64"
+else
+    echo "Warning: Unsupported architecture: $ARCH"
+    echo "Defaulting to arm64v8 for Raspberry Pi"
+    MEDIAMTX_ARCH="arm64v8"
+fi
+
+MEDIAMTX_URL="https://github.com/bluenviron/mediamtx/releases/download/${MEDIAMTX_VERSION}/mediamtx_${MEDIAMTX_VERSION}_linux_${MEDIAMTX_ARCH}.tar.gz"
+
+echo "Downloading MediaMTX ${MEDIAMTX_VERSION} for ${MEDIAMTX_ARCH}..."
+echo "URL: ${MEDIAMTX_URL}"
+
+cd /tmp
+wget -O mediamtx.tar.gz "$MEDIAMTX_URL"
+tar -xzf mediamtx.tar.gz
+chmod +x mediamtx
+mv mediamtx /usr/local/bin/
+
+# Keep the default config as a template
+mkdir -p /opt/uavcast/config
+mv mediamtx.yml /opt/uavcast/config/mediamtx.default.yml
+rm -f mediamtx.tar.gz LICENSE README.md
+
+echo "MediaMTX installed to /usr/local/bin/mediamtx"
+/usr/local/bin/mediamtx --version
+
+echo ""
+echo "Step 6: Installing frontend dependencies..."
 cd "$PROJECT_DIR/frontend"
 npm install
 
 echo ""
-echo "Step 6: Building frontend..."
+echo "Step 7: Building frontend..."
 npm run build
 
 echo ""
-echo "Step 7: Setting up systemd services..."
+echo "Step 8: Setting up systemd services..."
 cp "$PROJECT_DIR/systemd/uavcast-backend.service" /etc/systemd/system/
 cp "$PROJECT_DIR/systemd/uavcast-web.service" /etc/systemd/system/
 
@@ -99,15 +132,14 @@ sed -i "s|/path/to/uavcast-free|$PROJECT_DIR|g" /etc/systemd/system/uavcast-web.
 systemctl daemon-reload
 
 echo ""
-echo "Step 8: Creating directories..."
-mkdir -p /etc/uavcast
+echo "Step 9: Creating directories..."
+mkdir -p /opt/uavcast/config
+mkdir -p /opt/uavcast/recordings
 mkdir -p /var/log/uavcast
-mkdir -p /tmp/uavcast/hls
 
 # Set permissions
-chown -R $SUDO_USER:$SUDO_USER /etc/uavcast
+chown -R $SUDO_USER:$SUDO_USER /opt/uavcast
 chown -R $SUDO_USER:$SUDO_USER /var/log/uavcast
-chown -R $SUDO_USER:$SUDO_USER /tmp/uavcast
 
 echo ""
 echo "==============================================="

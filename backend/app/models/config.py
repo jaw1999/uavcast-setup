@@ -52,20 +52,47 @@ class VPNConfig(Base):
 
 
 class VideoConfig(Base):
-    """Video streaming configuration."""
+    """Video streaming configuration for MediaMTX."""
 
     __tablename__ = "video_config"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    # Camera source configuration
     camera_type = Column(String, nullable=False)  # usb or picamera
-    device = Column(String, nullable=True)  # /dev/video0 or libcamera
+    device = Column(String, nullable=True)  # /dev/video0 for USB cameras
+
+    # Encoding settings
     resolution = Column(String, default="1280x720")
     fps = Column(Integer, default=30)
-    bitrate = Column(Integer, default=2000)
-    destination = Column(String, nullable=True)  # host:port
-    protocol = Column(String, default="udp")  # udp, tcp, or hls
+    bitrate = Column(Integer, default=2000)  # kbps
+
+    # MediaMTX path configuration
+    path_name = Column(String, default="uav-camera")  # MediaMTX path name
+
+    # Protocol enablement
+    rtsp_enabled = Column(Boolean, default=True)
+    hls_enabled = Column(Boolean, default=True)
+    webrtc_enabled = Column(Boolean, default=True)
+    rtmp_enabled = Column(Boolean, default=False)
+
+    # Authentication (optional)
+    auth_enabled = Column(Boolean, default=False)
+    username = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+
+    # Recording
+    record_enabled = Column(Boolean, default=False)
+    record_path = Column(String, nullable=True)
+    record_format = Column(String, default="mp4")  # mp4 or mkv
+
+    # Advanced options
+    run_on_demand = Column(Boolean, default=True)  # Start source only when client connects
+    source_on_demand_start_timeout = Column(String, default="10s")
+    source_on_demand_close_after = Column(String, default="10s")
+
+    # System
     enabled = Column(Boolean, default=False)
-    custom_pipeline = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

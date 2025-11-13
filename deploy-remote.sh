@@ -86,7 +86,8 @@ set -e
 echo "Extracting archive..."
 cd /home/$PI_USER
 rm -rf uavcast-free
-tar -xzf /tmp/uavcast-deploy.tar.gz
+mkdir -p uavcast-free
+tar -xzf /tmp/uavcast-deploy.tar.gz -C uavcast-free --strip-components=1
 rm /tmp/uavcast-deploy.tar.gz
 
 echo "Files extracted to $REMOTE_DIR"
@@ -114,16 +115,12 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-venv \
     git \
     curl \
+    wget \
     build-essential \
-    gstreamer1.0-tools \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
+    ffmpeg \
     v4l-utils \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev \
+    modemmanager \
+    network-manager \
     wireguard \
     wireguard-tools
 
@@ -149,6 +146,86 @@ else
 fi
 
 echo "WireGuard installed"
+echo ""
+
+# Install MediaMTX
+echo "Installing MediaMTX..."
+MEDIAMTX_VERSION="v1.9.3"
+ARCH=\$(uname -m)
+
+if [ "\$ARCH" = "aarch64" ]; then
+    MEDIAMTX_ARCH="arm64v8"
+elif [ "\$ARCH" = "armv7l" ]; then
+    MEDIAMTX_ARCH="armv7"
+elif [ "\$ARCH" = "x86_64" ]; then
+    MEDIAMTX_ARCH="amd64"
+else
+    echo "Warning: Unsupported architecture: \$ARCH"
+    echo "Defaulting to arm64v8 for Raspberry Pi"
+    MEDIAMTX_ARCH="arm64v8"
+fi
+
+MEDIAMTX_URL="https://github.com/bluenviron/mediamtx/releases/download/\${MEDIAMTX_VERSION}/mediamtx_\${MEDIAMTX_VERSION}_linux_\${MEDIAMTX_ARCH}.tar.gz"
+
+echo "Downloading MediaMTX \${MEDIAMTX_VERSION} for \${MEDIAMTX_ARCH}..."
+cd /tmp
+
+# Try downloading with retries
+DOWNLOAD_SUCCESS=false
+MAX_RETRIES=3
+RETRY_COUNT=0
+
+while [ \$RETRY_COUNT -lt \$MAX_RETRIES ] && [ "\$DOWNLOAD_SUCCESS" = "false" ]; do
+    echo "Download attempt \$((RETRY_COUNT + 1)) of \$MAX_RETRIES..."
+
+    if wget --tries=3 --timeout=30 -O mediamtx.tar.gz "\$MEDIAMTX_URL"; then
+        DOWNLOAD_SUCCESS=true
+        echo "Download successful"
+    else
+        RETRY_COUNT=\$((RETRY_COUNT + 1))
+        if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+            echo "Download failed, retrying in 5 seconds..."
+            rm -f mediamtx.tar.gz
+            sleep 5
+        else
+            echo "Download failed after \$MAX_RETRIES attempts"
+            echo "You can manually download and install MediaMTX later:"
+            echo "  wget \$MEDIAMTX_URL"
+            echo "  tar -xzf mediamtx_*.tar.gz"
+            echo "  sudo mv mediamtx /usr/local/bin/"
+            echo "  sudo mv mediamtx.yml /opt/uavcast/config/mediamtx.default.yml"
+            echo "Skipping MediaMTX installation for now..."
+        fi
+    fi
+done
+
+if [ "\$DOWNLOAD_SUCCESS" = "true" ]; then
+    tar -xzf mediamtx.tar.gz
+    chmod +x mediamtx
+    sudo mv mediamtx /usr/local/bin/
+
+    # Create MediaMTX directories
+    echo "Creating MediaMTX directories..."
+    sudo mkdir -p /opt/uavcast/config
+    sudo mkdir -p /opt/uavcast/recordings
+
+    # Save default config as template
+    echo "Saving default MediaMTX config..."
+    sudo mv mediamtx.yml /opt/uavcast/config/mediamtx.default.yml
+
+    # Cleanup
+    rm -f mediamtx.tar.gz LICENSE README.md
+
+    sudo chown -R $PI_USER:$PI_USER /opt/uavcast
+
+    echo "MediaMTX installed to /usr/local/bin/mediamtx"
+    /usr/local/bin/mediamtx --version
+else
+    echo "WARNING: MediaMTX installation skipped due to download failure"
+    echo "The application will still work, but video streaming will not be available"
+fi
+
+cd $REMOTE_DIR
 echo ""
 
 # Stop ModemManager
@@ -248,7 +325,7 @@ After=network.target
 Type=simple
 User=$PI_USER
 WorkingDirectory=$REMOTE_DIR/backend
-Environment="PATH=$REMOTE_DIR/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=$REMOTE_DIR/backend/venv/bin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin"
 ExecStart=$REMOTE_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10

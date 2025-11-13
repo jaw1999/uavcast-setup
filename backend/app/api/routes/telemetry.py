@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/telemetry", tags=["telemetry"])
+router = APIRouter(prefix="/mavlink", tags=["mavlink", "telemetry"])
 
 
 class MAVLinkConfig(BaseModel):

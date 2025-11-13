@@ -74,10 +74,16 @@ app.include_router(system.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 
 
-# WebSocket endpoint
+# WebSocket endpoints
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""
+    await websocket_handler(websocket, app)
+
+
+@app.websocket("/ws/telemetry")
+async def websocket_telemetry_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for telemetry updates (alias for /ws)."""
     await websocket_handler(websocket, app)
 
 
