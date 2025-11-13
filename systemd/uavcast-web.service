@@ -1,0 +1,25 @@
+[Unit]
+Description=UAVcast-Free Web Interface
+After=network.target uavcast-backend.service
+Requires=uavcast-backend.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/path/to/uavcast-free/frontend
+ExecStart=/usr/bin/npm run preview -- --host 0.0.0.0 --port 3000
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=uavcast-web
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

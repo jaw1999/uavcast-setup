@@ -1,0 +1,25 @@
+[Unit]
+Description=UAVcast-Free Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/path/to/uavcast-free/backend
+Environment="PATH=/path/to/uavcast-free/backend/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/path/to/uavcast-free/backend/venv/bin/python -m app.main
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=uavcast-backend
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
