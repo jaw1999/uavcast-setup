@@ -384,14 +384,122 @@ class VPNManager:
         else:
             return {"status": "error", "message": "No active VPN connection"}
 
-    def get_status(self) -> Dict:
-        """Get VPN status."""
+    async def get_status(self) -> Dict:
+        """Get VPN status by checking actual system state."""
+        # Check each VPN provider to see if it's actually connected
+        # This allows us to detect connections even after a restart
+
+        # Check ZeroTier
+        zerotier_status = await self._check_zerotier_status()
+        if zerotier_status:
+            return zerotier_status
+
+        # Check Tailscale
+        tailscale_status = await self._check_tailscale_status()
+        if tailscale_status:
+            return tailscale_status
+
+        # Check WireGuard
+        wireguard_status = await self._check_wireguard_status()
+        if wireguard_status:
+            return wireguard_status
+
+        # No VPN connected
         return {
-            "provider": self.provider.value if self.provider else None,
-            "status": self.status,
-            "ip_address": self.assigned_ip,
-            "network_id": self.network_id if self.provider == VPNProvider.ZEROTIER else None,
+            "provider": None,
+            "status": "disconnected",
+            "ip_address": None,
+            "network_id": None,
         }
+
+    async def _check_zerotier_status(self) -> Optional[Dict]:
+        """Check if ZeroTier is connected."""
+        try:
+            result = await self._run_command(["sudo", "zerotier-cli", "listnetworks", "-j"])
+            if result["returncode"] == 0:
+                networks = json.loads(result["stdout"])
+                for network in networks:
+                    # Check if any network is connected
+                    addresses = network.get("assignedAddresses", [])
+                    if addresses:
+                        # Extract IPv4 address
+                        ip = None
+                        for addr in addresses:
+                            if "/" in addr and ":" not in addr.split("/")[0]:
+                                ip = addr.split("/")[0]
+                                break
+
+                        if ip:
+                            network_id = network.get("id")
+                            # Update internal state
+                            self.provider = VPNProvider.ZEROTIER
+                            self.status = "connected"
+                            self.assigned_ip = ip
+                            self.network_id = network_id
+
+                            return {
+                                "provider": "zerotier",
+                                "status": "connected",
+                                "ip_address": ip,
+                                "network_id": network_id,
+                            }
+        except Exception as e:
+            logger.debug(f"ZeroTier not connected: {e}")
+
+        return None
+
+    async def _check_tailscale_status(self) -> Optional[Dict]:
+        """Check if Tailscale is connected."""
+        try:
+            result = await self._run_command(["tailscale", "status", "--json"])
+            if result["returncode"] == 0:
+                status = json.loads(result["stdout"])
+                # Check if backend state is running
+                backend_state = status.get("BackendState", "")
+                if backend_state == "Running":
+                    # Get IP address
+                    ip = await self._get_tailscale_ip()
+                    if ip:
+                        # Update internal state
+                        self.provider = VPNProvider.TAILSCALE
+                        self.status = "connected"
+                        self.assigned_ip = ip
+
+                        return {
+                            "provider": "tailscale",
+                            "status": "connected",
+                            "ip_address": ip,
+                            "network_id": None,
+                        }
+        except Exception as e:
+            logger.debug(f"Tailscale not connected: {e}")
+
+        return None
+
+    async def _check_wireguard_status(self) -> Optional[Dict]:
+        """Check if WireGuard is connected."""
+        try:
+            # Check if wg0 interface exists and is up
+            result = await self._run_command(["ip", "link", "show", "wg0"])
+            if result["returncode"] == 0 and "UP" in result["stdout"]:
+                # Get IP address
+                ip = await self._get_wireguard_ip()
+                if ip:
+                    # Update internal state
+                    self.provider = VPNProvider.WIREGUARD
+                    self.status = "connected"
+                    self.assigned_ip = ip
+
+                    return {
+                        "provider": "wireguard",
+                        "status": "connected",
+                        "ip_address": ip,
+                        "network_id": None,
+                    }
+        except Exception as e:
+            logger.debug(f"WireGuard not connected: {e}")
+
+        return None
 
     async def _run_command(
         self, cmd: list, shell: bool = False, timeout: int = 30

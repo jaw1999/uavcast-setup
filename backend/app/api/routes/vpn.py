@@ -54,4 +54,4 @@ async def disconnect_vpn(request: Request):
 async def get_vpn_status(request: Request):
     """Get VPN status."""
     vpn_manager = request.app.state.vpn_manager
-    return vpn_manager.get_status()
+    return await vpn_manager.get_status()

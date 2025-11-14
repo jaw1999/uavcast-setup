@@ -57,8 +57,9 @@ export default function VideoSettings() {
         record_enabled: false,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['video-status'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['video-status'] });
+      await queryClient.refetchQueries({ queryKey: ['video-status'] });
       showSuccess('MediaMTX streaming started successfully');
     },
     onError: (error: any) => {

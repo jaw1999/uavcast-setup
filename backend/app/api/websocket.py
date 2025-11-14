@@ -98,7 +98,7 @@ async def broadcast_system_stats(app):
 
             if stats:
                 # Broadcast to all connected clients
-                await manager.broadcast({"type": "system", "data": stats})
+                await manager.broadcast({"type": "system_stats", "data": stats})
 
             # Wait before next broadcast
             await asyncio.sleep(2)
@@ -118,7 +118,7 @@ async def broadcast_mavlink_stats(app):
 
             if status.get("running"):
                 # Broadcast to all connected clients
-                await manager.broadcast({"type": "mavlink", "data": status})
+                await manager.broadcast({"type": "mavlink_stats", "data": status})
 
             # Wait before next broadcast
             await asyncio.sleep(1)

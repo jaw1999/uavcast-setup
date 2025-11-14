@@ -114,22 +114,13 @@ class MediaMTXManager:
                 self.process = None
                 return {"status": "error", "message": error_msg}
 
-            # Try to read any initial output
-            if self.process.stdout:
-                try:
-                    # Non-blocking read of initial output
-                    import select
-                    if select.select([self.process.stdout], [], [], 0)[0]:
-                        initial_output = self.process.stdout.read(4096)
-                        if initial_output:
-                            logger.info(f"MediaMTX initial output: {initial_output}")
-                except Exception as e:
-                    logger.debug(f"Could not read initial output: {e}")
+            # Skip reading initial output to avoid blocking
+            # MediaMTX logs will be available via the logs endpoint
+            logger.debug("MediaMTX process started, skipping initial output read")
 
-            # Verify API is responding
-            api_ready = await self._wait_for_api()
-            if not api_ready:
-                logger.warning("MediaMTX started but API not responding")
+            # Don't wait for API during start to avoid blocking the response
+            # The watchdog will verify API availability in the background
+            logger.debug("MediaMTX process started, API check will happen in background")
 
             self.running = True
             logger.info(f"MediaMTX started successfully (PID: {self.process.pid})")
@@ -141,7 +132,8 @@ class MediaMTXManager:
             stream_urls = self._get_stream_urls(path_name)
 
             return {
-                "status": "streaming",
+                "status": "success",
+                "running": True,
                 "pid": self.process.pid,
                 "camera_type": config.get("camera_type"),
                 "path_name": path_name,  # Return the actual path name used
@@ -183,7 +175,7 @@ class MediaMTXManager:
             self.running = False
 
             logger.info("MediaMTX stopped")
-            return {"status": "stopped"}
+            return {"status": "success", "running": False}
 
         except Exception as e:
             logger.error(f"Failed to stop MediaMTX: {e}")

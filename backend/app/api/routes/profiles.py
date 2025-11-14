@@ -13,7 +13,7 @@ from app.models.config import (
     VPNConfig,
 )
 
-router = APIRouter(prefix="/config/profiles", tags=["profiles"])
+router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
 class ProfileCreate(BaseModel):
